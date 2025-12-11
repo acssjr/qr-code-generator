@@ -257,25 +257,65 @@ async function downloadPNG() {
 }
 
 /**
- * Download SVG
+ * Download SVG with embedded logo
+ * Fixes Illustrator compatibility by ensuring image is inline base64
  */
 async function downloadSVG() {
     if (!qrCode || !currentUrl) return;
 
     try {
+        showToast('Gerando SVG...', 'success');
+
         const downloadConfig = getQRCodeConfig(false);
         downloadConfig.width = config.downloadSize;
         downloadConfig.height = config.downloadSize;
         downloadConfig.type = 'svg';
 
         const downloadQR = new QRCodeStyling(downloadConfig);
-        await downloadQR.download({ name: 'qrcode', extension: 'svg' });
+
+        // Get SVG as blob
+        const svgBlob = await downloadQR.getRawData('svg');
+
+        // Read blob as text
+        const svgText = await svgBlob.text();
+
+        // Parse and fix the SVG
+        let fixedSvg = svgText;
+
+        // If there's a logo, ensure it's embedded as base64
+        if (logoDataUrl) {
+            // The logo should already be base64 from our optimizeLogo function
+            // Check if the SVG has an image with xlink:href or href
+            fixedSvg = fixedSvg.replace(
+                /xlink:href="(?!data:)[^"]*"/g,
+                `xlink:href="${logoDataUrl}"`
+            );
+            fixedSvg = fixedSvg.replace(
+                /href="(?!data:)(?!#)[^"]*"/g,
+                `href="${logoDataUrl}"`
+            );
+        }
+
+        // Create downloadable blob
+        const blob = new Blob([fixedSvg], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+
+        // Download
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'qrcode.svg';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
         showToast('Download SVG realizado!', 'success');
     } catch (error) {
         showToast('Erro ao fazer download', 'error');
         console.error('Download error:', error);
     }
 }
+
 
 /**
  * Copy URL to clipboard
@@ -310,9 +350,55 @@ function togglePanel() {
 }
 
 /**
+ * Optimize and compress logo image
+ * @param {string} dataUrl - Original image data URL
+ * @param {number} maxSize - Maximum dimension (width/height)
+ * @param {number} quality - JPEG quality (0-1)
+ * @returns {Promise<string>} - Optimized image data URL
+ */
+function optimizeLogo(dataUrl, maxSize = 150, quality = 0.8) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+
+            // Scale down if larger than maxSize
+            if (width > maxSize || height > maxSize) {
+                if (width > height) {
+                    height = Math.round((height * maxSize) / width);
+                    width = maxSize;
+                } else {
+                    width = Math.round((width * maxSize) / height);
+                    height = maxSize;
+                }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+
+            const ctx = canvas.getContext('2d');
+
+            // White background for transparency
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw image
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Export as PNG for best compatibility with SVG
+            const optimizedDataUrl = canvas.toDataURL('image/png', quality);
+            resolve(optimizedDataUrl);
+        };
+        img.src = dataUrl;
+    });
+}
+
+/**
  * Handle logo upload
  */
-function handleLogoUpload(event) {
+async function handleLogoUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
 
@@ -321,9 +407,17 @@ function handleLogoUpload(event) {
         return;
     }
 
+    // Check file size (warn if > 1MB)
+    if (file.size > 1024 * 1024) {
+        showToast('Otimizando imagem grande...', 'success');
+    }
+
     const reader = new FileReader();
-    reader.onload = (e) => {
-        logoDataUrl = e.target.result;
+    reader.onload = async (e) => {
+        // Optimize the logo
+        const originalDataUrl = e.target.result;
+        logoDataUrl = await optimizeLogo(originalDataUrl, 150, 0.85);
+
         logoImage.src = logoDataUrl;
         logoImage.style.display = 'block';
         logoPreview.classList.add('has-logo');
@@ -335,7 +429,7 @@ function handleLogoUpload(event) {
         document.querySelector('input[name="errorCorrection"][value="H"]').checked = true;
 
         updatePreview();
-        showToast('Logo adicionado! Correção de erros aumentada para H.', 'success');
+        showToast('Logo otimizado e adicionado!', 'success');
     };
     reader.readAsDataURL(file);
 }
