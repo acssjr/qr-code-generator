@@ -20,6 +20,10 @@ const DEFAULT_CONFIG: QRConfig = {
   cornerColor: '#ffffff',
   bgColor: '#00000000', // Transparent by default for glass effect
   errorCorrectionLevel: 'H',
+  borderRadius: 24,
+  useGradient: false,
+  gradientType: 'linear',
+  gradientColor2: '#a855f7', // Purple-500 default
 };
 
 export default function Home() {

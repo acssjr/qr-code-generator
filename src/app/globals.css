@@ -68,6 +68,7 @@ body {
 
 /* Range Input Customization */
 input[type=range] {
+  appearance: none;
   -webkit-appearance: none;
   background: transparent;
 }

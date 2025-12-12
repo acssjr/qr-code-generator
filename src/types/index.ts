@@ -9,6 +9,10 @@ export interface QRConfig {
     cornerColor: string;
     bgColor: string;
     errorCorrectionLevel: string;
+    borderRadius?: number;
+    useGradient?: boolean;
+    gradientType?: 'linear' | 'radial';
+    gradientColor2?: string;
 }
 
 export interface TrackingData {

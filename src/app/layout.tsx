@@ -21,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className="dark">
+    <html lang="pt-BR" className="dark" suppressHydrationWarning>
       <body className={`${inter.variable} min-h-screen bg-black text-white antialiased selection:bg-purple-500/30 selection:text-purple-200`}>
         {/* Animated Background */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
